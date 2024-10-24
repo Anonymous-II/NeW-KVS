@@ -14,6 +14,15 @@
 
 namespace ROCKSDB_NAMESPACE {
 
+//added annon
+void WriteController::SetL0Stall(){
+  l0stall_ = true;
+}
+
+bool WriteController::GetL0Stall(){
+  return l0stall_;
+}
+
 std::unique_ptr<WriteControllerToken> WriteController::GetStopToken() {
   ++total_stopped_;
   return std::unique_ptr<WriteControllerToken>(new StopWriteToken(this));

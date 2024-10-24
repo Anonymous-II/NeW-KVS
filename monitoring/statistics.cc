@@ -76,6 +76,8 @@ const std::vector<std::pair<Tickers, std::string>> TickersNameMap = {
     {NO_FILE_OPENS, "rocksdb.no.file.opens"},
     {NO_FILE_ERRORS, "rocksdb.no.file.errors"},
     {STALL_MICROS, "rocksdb.stall.micros"},
+    //added annon
+    {STALL_L0_MICROS, "rocksdb.stall.l0.micros"},
     {DB_MUTEX_WAIT_MICROS, "rocksdb.db.mutex.wait.micros"},
     {NUMBER_MULTIGET_CALLS, "rocksdb.number.multiget.get"},
     {NUMBER_MULTIGET_KEYS_READ, "rocksdb.number.multiget.keys.read"},

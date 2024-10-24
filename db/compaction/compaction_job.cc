@@ -623,7 +623,7 @@ Status CompactionJob::Run() {
   const size_t num_threads = compact_->sub_compact_states.size();
   assert(num_threads > 0);
   const uint64_t start_micros = db_options_.clock->NowMicros();
-
+  
   // Launch a thread for each of subcompactions 1...num_threads-1
   std::vector<port::Thread> thread_pool;
   thread_pool.reserve(num_threads - 1);
@@ -1045,7 +1045,7 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
     // fallback to local compaction
     assert(comp_status == CompactionServiceJobStatus::kUseLocal);
   }
-
+ 
   uint64_t prev_cpu_micros = db_options_.clock->CPUMicros();
 
   ColumnFamilyData* cfd = sub_compact->compaction->column_family_data();
@@ -1304,7 +1304,50 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
     // and `close_file_func`.
     // TODO: it would be better to have the compaction file open/close moved
     // into `CompactionOutputs` which has the output file information.
-    status = sub_compact->AddToOutput(*c_iter, open_file_func, close_file_func);
+    
+    //// check value of c_iter and if it is CE, dont add. add to CE set.
+    //// L0 CE Capping
+    
+    if(c_iter->value().ToString()[0] == 'a'){
+      //c_iter points TE
+      status = sub_compact->AddToOutput(*c_iter, open_file_func, close_file_func);
+    }
+    
+    else{
+      //c_iter->IsDeleteRangeSentinelKey()
+      //c_iter points CE
+      //add to CE set
+      if(sub_compact->compaction->immutable_options()->ce_set == NULL){
+        printf("[DEBUG] ce set is null. serious error!!!!!!!!\n");
+      }
+      else{
+        Clue_Entry_Set *cur_ce_set = sub_compact->compaction->immutable_options()->ce_set;
+        std::string key_str = c_iter->user_key().ToString();
+        bool contain = cur_ce_set->contains(key_str);
+        if(contain == false){
+          //no OKV
+          //for debug 
+          cur_ce_set->put(key_str, c_iter->value().ToString());
+        }
+        else{
+
+          std::string value_str = cur_ce_set->get(key_str);
+
+          if(cur_ce_set->remove(key_str)){
+            cur_ce_set->put(key_str, c_iter->value().ToString());
+          }
+          
+          else{
+            printf("[DEBUG] db/compaction/compaction_job.cc: ce remove error\n");
+            //something wrong. removed 0 or more than 2 ce's.
+            //if 0, maybe because rollback module removed the ce.
+          }
+        }
+      }
+    }  
+    
+
+  
     if (!status.ok()) {
       break;
     }
@@ -1318,6 +1361,33 @@ void CompactionJob::ProcessKeyValueCompaction(SubcompactionState* sub_compact) {
       break;
     }
   }
+
+  //checkpointing 
+  if(compact_->compaction->level() == 0){
+    std::string ckp_name = sub_compact->compaction->immutable_options()->db_paths[0].path + "/CESET.ckp";
+    //std::cout << "[DEBUG DIR] dbdir " << sub_compact->compaction->immutable_options()->cf_paths[0].path << std::endl;
+    //std::cout << "[DEBUG DIR] dbdir " << ckp_name << std::endl;
+    std::unordered_map<std::string, std::string> ce_map_tmp = sub_compact->compaction->immutable_options()->ce_set->map();
+    size_t ckp_size = ce_map_tmp.size();
+    std::ofstream outFile(ckp_name, std::ios::binary);
+    outFile.write(reinterpret_cast<const char*>(&ckp_size), sizeof(ckp_size));
+    for (const auto& pair : ce_map_tmp) {
+        size_t keyLength = pair.first.size();
+        outFile.write(reinterpret_cast<const char*>(&keyLength), sizeof(keyLength));
+        outFile.write(pair.first.c_str(), keyLength);
+
+        size_t valueLength = pair.second.size(); // 값의 길이를 추가
+        outFile.write(reinterpret_cast<const char*>(&valueLength), sizeof(valueLength));
+        outFile.write(pair.second.c_str(), valueLength); // c_str()를 사용하여 실제 문자열 데이터를 저장
+
+        //outFile.write(reinterpret_cast<const char*>(&valueLength), sizeof(valueLength));
+        //outFile.write(reinterpret_cast<const char*>(&pair.second), sizeof(pair.second));
+    }
+    outFile.close();
+    //std::cout << "[DEBUG] " << ckp_name << std::endl;
+  }
+  
+  
 
   sub_compact->compaction_job_stats.num_blobs_read =
       c_iter_stats.num_blobs_read;

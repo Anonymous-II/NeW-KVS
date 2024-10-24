@@ -1881,6 +1881,12 @@ Status DBImpl::DelayWrite(uint64_t num_bytes, WriteThread& write_thread,
     default_cf_internal_stats_->AddDBStats(
         InternalStats::kIntStatsWriteStallMicros, time_delayed);
     RecordTick(stats_, STALL_MICROS, time_delayed);
+
+    //edited annon
+    if(write_controller_.GetL0Stall()){
+      RecordTick(stats_, STALL_L0_MICROS, time_delayed);
+    }
+
   }
 
   // If DB is not in read-only mode and write_controller is not stopping

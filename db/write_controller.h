@@ -28,6 +28,7 @@ class WriteController {
       : total_stopped_(0),
         total_delayed_(0),
         total_compaction_pressure_(0),
+        l0stall_(false), //added annon
         credit_in_bytes_(0),
         next_refill_time_(0),
         low_pri_rate_limiter_(
@@ -35,6 +36,10 @@ class WriteController {
     set_max_delayed_write_rate(_delayed_write_rate);
   }
   ~WriteController() = default;
+  
+  //added annon
+  void SetL0Stall();
+  bool GetL0Stall();
 
   // When an actor (column family) requests a stop token, all writes will be
   // stopped until the stop token is released (deleted)
@@ -96,6 +101,9 @@ class WriteController {
   std::atomic<int> total_stopped_;
   std::atomic<int> total_delayed_;
   std::atomic<int> total_compaction_pressure_;
+
+  //added annon
+  std::atomic<bool> l0stall_;
 
   // Number of bytes allowed to write without delay
   uint64_t credit_in_bytes_;

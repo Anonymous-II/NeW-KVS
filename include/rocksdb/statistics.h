@@ -146,6 +146,9 @@ enum Tickers : uint32_t {
   NO_FILE_ERRORS,
   // Writer has to wait for compaction or flush to finish.
   STALL_MICROS,
+
+  //added annon
+  STALL_L0_MICROS,
   // The wait time for db mutex.
   // Disabled by default. To enable it set stats level to kAll
   DB_MUTEX_WAIT_MICROS,
